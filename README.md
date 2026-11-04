@@ -37,10 +37,11 @@
 
 ## 자동 빌드와 배포 (GameCI)
 
-저장소 Settings → Secrets and variables → Actions에 아래 셋을 넣습니다.
+저장소 Settings → Secrets and variables → Actions에 Unity 계정을 넣습니다.
 
-- `UNITY_EMAIL`, `UNITY_PASSWORD`: Unity 계정
-- `UNITY_LICENSE`: Personal 라이선스 파일(`.ulf`) 내용 전체. 받는 법은 https://game.ci/docs/github/activation
+- `UNITY_EMAIL`, `UNITY_PASSWORD`: Unity 계정. Personal(무료) 라이선스는 이 둘이면 됩니다.
+- `UNITY_SERIAL`: Pro/Plus 라이선스일 때만.
+- `UNITY_LICENSE`: Enterprise용 `.ulf` 파일을 쓸 때만. 자세한 내용은 https://game.ci/docs/github/activation
 
 그리고 Settings → Pages → Source를 **GitHub Actions**로 바꿉니다.
 `main`에 올릴 때마다 테스트 → WebGL 빌드 → Pages 배포가 돌고, 휴대폰 브라우저에서
