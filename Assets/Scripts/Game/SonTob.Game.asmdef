@@ -1,0 +1,16 @@
+{
+    "name": "SonTob.Game",
+    "rootNamespace": "SonTob.Game",
+    "references": [
+        "SonTob.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
