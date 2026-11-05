@@ -176,6 +176,16 @@ namespace SonTob.Core
             }
         }
 
+        /// <summary>고양이가 다음 박자에 설 칸(화면의 점선 칸).</summary>
+        public Pos CatNextPos()
+        {
+            List<Pos> path = null;
+            if (CatChasing) path = Map.Path(Cat, Player, true);
+            else if (CatReturning) path = Map.Path(Cat, CatPatrol.Pos, true);
+            else return CatPatrol.NextPos();
+            return path != null && path.Count > 0 ? path[0] : Cat;
+        }
+
         void Caught()
         {
             Ended = EndReason.CaughtByCat;
