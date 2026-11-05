@@ -22,8 +22,9 @@ namespace SonTob.Core
         Win,            // 대보름까지 버팀
         Suspicion,      // 의심 100
         Hunger,         // 허기 0
-        BeatsOut,       // 둔갑이 풀림(임무를 못 끝냄)
-        CaughtByCat,    // 깬 고양이에게 잡힘
+        BeatsOut,       // 둔갑 시간이 다함(임무를 못 끝냄)
+        CaughtByCat,    // 밤에 고양이에게 잡힘
+        Sunrise,        // 손톱을 못 먹었는데 해가 뜸
     }
 
     public static class MoveRules

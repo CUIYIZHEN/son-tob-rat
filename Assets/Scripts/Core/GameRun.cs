@@ -6,6 +6,8 @@ namespace SonTob.Core
 
     /// <summary>
     /// 한 판: 밤 1 → 낮 1 → 밤 2 → 낮 2 → 밤 3 → 낮 3. 허기와 의심은 판 내내 이어집니다.
+    /// 첫날 밤에 시작하고, 손톱을 먹는 순간 해가 뜨며, 낮 임무를 다 하면 해가 집니다.
+    /// 날마다 GameConfig.ForDay(Day)의 값으로 어려워집니다.
     /// 같은 씨앗(seed)이면 같은 판이 나와서, 플레이 기록을 그대로 다시 돌려 볼 수 있습니다.
     /// </summary>
     public class GameRun
@@ -25,6 +27,9 @@ namespace SonTob.Core
         /// <summary>마지막 한 수에서 생긴 일. 밤↔낮이 바뀌어도 남아 있습니다.</summary>
         public readonly System.Collections.Generic.List<string> LastEvents = new System.Collections.Generic.List<string>();
 
+        /// <summary>오늘의 난이도 값.</summary>
+        public GameConfig Today { get { return Config.ForDay(Day); } }
+
         public GameRun(GameConfig config, int seed)
         {
             Config = config;
@@ -40,15 +45,21 @@ namespace SonTob.Core
             Phase = Phase.Night;
             if (Day > 1) Suspicion = Math.Max(0, Suspicion - Config.NightCalm);
             Hunger -= Config.NightHunger;
-            Night = new NightPhase(Config, Map, rng);
+            Night = new NightPhase(Today, Map, rng);
             DayState = null;
             if (Hunger <= 0) { Hunger = 0; Finish(EndReason.Hunger); }
         }
 
-        void StartDay(PersonId who)
+        void StartDay(Nail eaten)
         {
             Phase = Phase.Day;
-            DayState = new DayPhase(Config, Map, Village.Get(who), Hunger, Suspicion);
+            if (eaten.Method == NailMethod.Burn)
+            {
+                Suspicion += Config.BurnSuspicion;
+                LastEvents.Add("탄내가 배었다. 의심 +" + Config.BurnSuspicion);
+            }
+            DayState = new DayPhase(Today, Map, Village.Get(eaten.Owner), Hunger, Suspicion);
+            if (Suspicion >= Config.MaxSuspicion) { Suspicion = Config.MaxSuspicion; Finish(EndReason.Suspicion); }
         }
 
         void Finish(EndReason why) { Ended = why; Phase = Phase.Over; }
@@ -60,12 +71,14 @@ namespace SonTob.Core
             LastEvents.Clear();
             if (Phase == Phase.Night)
             {
-                bool hadEaten = Night.Eaten != null;
                 Night.Apply(m);
                 LastEvents.AddRange(Night.Events);
-                if (!hadEaten && Night.Eaten != null) Hunger = Math.Min(Config.MaxHunger, Hunger + Config.NailHunger);
                 if (Night.Ended != EndReason.None) { Finish(Night.Ended); return; }
-                if (Night.Morning) StartDay(Night.Eaten.Owner);
+                if (Night.Eaten != null)
+                {
+                    Hunger = Math.Min(Config.MaxHunger, Hunger + Config.NailHunger);
+                    StartDay(Night.Eaten);
+                }
                 return;
             }
 

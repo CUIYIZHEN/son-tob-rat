@@ -60,7 +60,7 @@ namespace SonTob.Core
 
     /// <summary>
     /// 마을 지도. 문자 격자에서 읽습니다(기획서 7장, village-map-v1.txt).
-    /// # 담장·집, . 길, d 개구멍(네 발로만), K 잠든 고양이(막힘), 그 밖의 글자는 길 위의 표식.
+    /// # 담장·집, . 길, d 개구멍(네 발로만), K 장독대(고양이 잠자리, 막힘), 그 밖의 글자는 길 위의 표식.
     /// </summary>
     public class MapData
     {
