@@ -57,14 +57,23 @@ jobs:
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android || true
-      - uses: game-ci/unity-builder@v4
+      # v6 activates a free Personal seat from UNITY_EMAIL + UNITY_PASSWORD;
+      # v4 insisted on a UNITY_LICENSE file or serial.
+      - uses: game-ci/unity-builder@v6
         with:
           targetPlatform: WebGL
           buildMethod: SonTob.Editor.BuildScript.BuildWebGL
           buildName: WebGL
+          buildsPath: build
+      - name: Find WebGL output
+        id: webgl
+        run: |
+          index=$(find build -name index.html -print -quit)
+          if [ -z "$index" ]; then echo "No index.html under build/"; find build -maxdepth 4; exit 1; fi
+          echo "dir=$(dirname "$index")" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: build/WebGL/WebGL
+          path: ${{ steps.webgl.outputs.dir }}
 
   deploy:
     name: Publish to GitHub Pages
