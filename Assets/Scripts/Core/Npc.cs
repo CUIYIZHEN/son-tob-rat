@@ -83,6 +83,15 @@ namespace SonTob.Core
             }
         }
 
+        /// <summary>다음 박자에 설 칸.</summary>
+        public Pos NextPos() { return IsWalker ? NextLoopPos() : Pos; }
+
+        /// <summary>다음 박자에 볼 칸들(화면의 점선 칸).</summary>
+        public List<Pos> NextSight(MapData map, int length) { return SightLine(map, NextPos(), NextFacing(), length); }
+
+        /// <summary>한 바퀴 길이(칸).</summary>
+        public int LoopLength { get { return loop.Count; } }
+
         public List<Pos> Sight(MapData map, int length)
         {
             return SightLine(map, Pos, Facing, length);

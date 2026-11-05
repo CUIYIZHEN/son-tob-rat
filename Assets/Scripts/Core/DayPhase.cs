@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace SonTob.Core
 {
     /// <summary>
-    /// 낮: 둔갑한 사람의 임무 셋을 둔갑 박자 안에 끝냅니다.
+    /// 낮: 둔갑한 사람의 임무 셋을 둔갑 시간(박자) 안에 끝냅니다.
     /// 한 수 = 1박자. 수를 둘 때마다 마을 사람도 한 칸 움직이거나 고개를 돌립니다.
     /// </summary>
     public class DayPhase

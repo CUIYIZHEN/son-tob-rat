@@ -11,7 +11,7 @@ namespace SonTob.Core
     {
         public PersonId Id;
         public string Name;
-        public int BeatSign;          // 둔갑 박자 = B + BeatSign × d
+        public int BeatSign;          // 둔갑 시간 = B + BeatSign × d
         public float Throw, Bury, Burn; // 손톱 버리기 비율
         public char Yard;             // 던짐·묻음 손톱이 놓이는 칸
         public char Hearth;           // 태움 손톱이 놓이는 칸(아궁이 앞)
@@ -61,7 +61,10 @@ namespace SonTob.Core
 
         public const char RatHole = 'R';
         public const char Well = 'W';
-        public const char Cat = 'K';
+        public const char Cat = 'K';   // 장독대: 낮에 고양이가 자는 곳(늘 막힌 칸)
+
+        /// <summary>밤 고양이가 도는 길목: 장독대 옆 → 닭장 → 우물 → 외양간 → 아랫밭 → 다시 장독대.</summary>
+        public static readonly char[] CatRouteMarks = { 'e', 'W', 'b', 'c' };
 
         public static MapData CreateMap() { return new MapData(MapRows); }
 
@@ -76,6 +79,20 @@ namespace SonTob.Core
         };
 
         public static Person Get(PersonId id) { return People[(int)id]; }
+
+        /// <summary>밤 고양이의 길. 장독대 바로 옆 길에서 출발합니다.</summary>
+        public static NpcSpec CatRoute(MapData map)
+        {
+            var home = map.Mark(Cat);
+            var points = new List<Pos>();
+            foreach (var d in Dirs.All)
+            {
+                var n = home + d.Step();
+                if (map.Walkable(n, false)) { points.Add(n); break; }
+            }
+            foreach (var c in CatRouteMarks) points.Add(map.Mark(c));
+            return new NpcSpec { Name = "고양이", Waypoints = points.ToArray() };
+        }
 
         /// <summary>낮에 밖에 있는 사람들. 진짜 세 사람은 자기 집 마당을 오갑니다.</summary>
         public static List<NpcSpec> DayNpcs()
