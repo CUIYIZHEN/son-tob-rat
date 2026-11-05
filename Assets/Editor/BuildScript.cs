@@ -47,7 +47,15 @@ namespace SonTob.Editor
                 options = BuildOptions.None,
             };
             var report = BuildPipeline.BuildPlayer(options);
-            Debug.Log("Build result: " + report.summary.result + " → " + output);
+            var sum = report.summary;
+            Debug.Log("Build result: " + sum.result + " → " + output);
+            // game-ci/cli reads this block (or "Build succeeded!") from the log to decide pass/fail.
+            Debug.Log(
+                "\n###########################\n#      Build results      #\n###########################\n\n" +
+                "Duration: " + sum.totalTime + "\nWarnings: " + sum.totalWarnings + "\n" +
+                "Errors: " + (sum.result == BuildResult.Succeeded ? 0 : Math.Max(1, sum.totalErrors)) + "\n" +
+                "Size: " + sum.totalSize + " bytes\n");
+            if (sum.result == BuildResult.Succeeded) Debug.Log("Build succeeded!");
             if (Application.isBatchMode)
                 EditorApplication.Exit(report.summary.result == BuildResult.Succeeded ? 0 : 1);
         }
