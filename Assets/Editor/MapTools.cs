@@ -13,13 +13,11 @@ namespace SonTob.Editor
         {
             var map = Village.CreateMap();
             var start = map.Mark(Village.RatHole);
-            var sb = new StringBuilder("쥐구멍에서 임무 셋까지 걸음 길 L\n");
-            foreach (var p in Village.People)
-            {
-                var stops = new System.Collections.Generic.List<Pos>();
-                foreach (var c in p.Missions) stops.Add(map.Mark(c));
-                sb.AppendLine(p.Name + ": 걸어서 " + map.ShortestTour(start, stops, false) + "칸, 개구멍 포함 " + map.ShortestTour(start, stops, true) + "칸");
-            }
+            var sb = new StringBuilder("쥐구멍에서 임무 셋까지 걸음 길 L (30이어야 한다)\n");
+            var lord = Village.TheLord;
+            var stops = new System.Collections.Generic.List<Pos>();
+            foreach (var c in lord.Missions) stops.Add(map.Mark(c));
+            sb.AppendLine(lord.Name + ": 걸어서 " + map.ShortestTour(start, stops, false) + "칸, 개구멍 포함 " + map.ShortestTour(start, stops, true) + "칸");
             Debug.Log(sb.ToString());
             EditorUtility.DisplayDialog("걸음 길 L", sb.ToString(), "확인");
         }

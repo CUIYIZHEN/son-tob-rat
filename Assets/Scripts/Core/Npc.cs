@@ -4,7 +4,7 @@ namespace SonTob.Core
 {
     /// <summary>
     /// 마을 사람. 걸을 때는 가는 방향을, 서 있을 때는 정해진 순서대로 돌아보며 직선 앞 몇 칸만 봅니다.
-    /// 내가 한 번 움직일 때(1박자) 한 칸 움직이거나 고개를 돌립니다.
+    /// 내가 한 번 움직일 때(1걸음) 한 칸 움직이거나 고개를 돌립니다.
     /// </summary>
     public class Npc
     {
@@ -21,9 +21,17 @@ namespace SonTob.Core
         public Npc(NpcSpec spec, MapData map)
         {
             Spec = spec;
-            Pos = spec.Waypoints[0];
-            loop.Add(Pos);
-            if (spec.Waypoints.Length > 1)
+            if (spec.Loop != null && spec.Loop.Length > 0)
+            {
+                loop.AddRange(spec.Loop);
+                Pos = loop[0];
+            }
+            else
+            {
+                Pos = spec.Waypoints[0];
+                loop.Add(Pos);
+            }
+            if (spec.Loop == null && spec.Waypoints.Length > 1)
             {
                 // 길목 사이를 가장 짧은 길로 잇고, 마지막 길목에서 처음으로 돌아옵니다.
                 var all = new List<Pos>(spec.Waypoints);
@@ -48,7 +56,7 @@ namespace SonTob.Core
             return Dirs.TryFromDelta(next - Pos, out d) ? d : Facing;
         }
 
-        /// <summary>다음 박자에 볼 방향(머리 위 화살표용).</summary>
+        /// <summary>다음 걸음에 볼 방향(머리 위 화살표용).</summary>
         public Dir NextFacing()
         {
             if (IsWalker)
@@ -83,10 +91,10 @@ namespace SonTob.Core
             }
         }
 
-        /// <summary>다음 박자에 설 칸.</summary>
+        /// <summary>다음 걸음에 설 칸.</summary>
         public Pos NextPos() { return IsWalker ? NextLoopPos() : Pos; }
 
-        /// <summary>다음 박자에 볼 칸들(화면의 점선 칸).</summary>
+        /// <summary>다음 걸음에 볼 칸들(화면의 점선 칸).</summary>
         public List<Pos> NextSight(MapData map, int length) { return SightLine(map, NextPos(), NextFacing(), length); }
 
         /// <summary>한 바퀴 길이(칸).</summary>
