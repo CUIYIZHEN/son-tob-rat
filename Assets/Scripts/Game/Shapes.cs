@@ -10,6 +10,7 @@ namespace SonTob.Game
     {
         const int PPU = 64;
         static Sprite diamond, diamondEdge, block, circle, ring, arrow;
+        static Sprite diamondDashed, chevron, droplet, edgeSE, edgeSW, hatch;
 
         public static Sprite Diamond { get { return diamond ?? (diamond = MakeDiamond(false)); } }
         public static Sprite DiamondEdge { get { return diamondEdge ?? (diamondEdge = MakeDiamond(true)); } }
@@ -17,6 +18,18 @@ namespace SonTob.Game
         public static Sprite Circle { get { return circle ?? (circle = MakeCircle(false)); } }
         public static Sprite Ring { get { return ring ?? (ring = MakeCircle(true)); } }
         public static Sprite Arrow { get { return arrow ?? (arrow = MakeArrow()); } }
+        /// <summary>점선 테두리 마름모: 다음 박자에 볼 칸, 고양이가 다음에 갈 칸.</summary>
+        public static Sprite DiamondDashed { get { return diamondDashed ?? (diamondDashed = MakeDashed()); } }
+        /// <summary>오른쪽을 향한 꺾쇠(›). 시선 띠 위에 칸마다 하나.</summary>
+        public static Sprite Chevron { get { return chevron ?? (chevron = MakeChevron()); } }
+        /// <summary>오른쪽이 뾰족한 물방울. 발밑 그림자로 보는 쪽을 알려 줌.</summary>
+        public static Sprite Droplet { get { return droplet ?? (droplet = MakeDroplet()); } }
+        /// <summary>칸의 남동 변(오른쪽 아래 변)에 붙인 낮은 담.</summary>
+        public static Sprite EdgeSE { get { return edgeSE ?? (edgeSE = MakeEdge(true)); } }
+        /// <summary>칸의 남서 변(왼쪽 아래 변)에 붙인 낮은 담.</summary>
+        public static Sprite EdgeSW { get { return edgeSW ?? (edgeSW = MakeEdge(false)); } }
+        /// <summary>빗금 무늬 마름모: 막힌 칸의 바닥(길과 다르게).</summary>
+        public static Sprite Hatch { get { return hatch ?? (hatch = MakeHatch()); } }
 
         static Texture2D NewTex(int w, int h)
         {
@@ -108,6 +121,110 @@ namespace SonTob.Game
                 }
             t.Apply();
             return Sprite.Create(t, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), PPU);
+        }
+
+        static Sprite MakeDashed()
+        {
+            int w = 64, h = 32;
+            var t = NewTex(w, h);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float d = DiamondDist(x + 0.5f, y + 0.5f, w, h);
+                    if (d > 1f || d < 0.84f) continue;
+                    // 가로 8픽셀마다 켜고 끄기
+                    if ((x / 6) % 2 == 1) continue;
+                    t.SetPixel(x, y, Color.white);
+                }
+            t.Apply();
+            return Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), PPU);
+        }
+
+        static float SegDist(Vector2 p, Vector2 a, Vector2 b)
+        {
+            var ab = b - a;
+            float k = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Vector2.Dot(ab, ab));
+            return Vector2.Distance(p, a + ab * k);
+        }
+
+        static Sprite MakeChevron()
+        {
+            int s = 32;
+            var t = NewTex(s, s);
+            var tip = new Vector2(24, 16);
+            var top = new Vector2(10, 28);
+            var bottom = new Vector2(10, 4);
+            for (int y = 0; y < s; y++)
+                for (int x = 0; x < s; x++)
+                {
+                    var p = new Vector2(x + 0.5f, y + 0.5f);
+                    float d = Mathf.Min(SegDist(p, top, tip), SegDist(p, bottom, tip));
+                    float a = Mathf.Clamp01(4.5f - d);
+                    if (a > 0) t.SetPixel(x, y, new Color(1, 1, 1, a));
+                }
+            t.Apply();
+            return Sprite.Create(t, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), PPU);
+        }
+
+        static Sprite MakeDroplet()
+        {
+            int w = 64, h = 32;
+            var t = NewTex(w, h);
+            var c = new Vector2(24, 16);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    var p = new Vector2(x + 0.5f, y + 0.5f);
+                    // 둥근 몸통 + 오른쪽으로 좁아지는 꼬리
+                    float body = Vector2.Distance(new Vector2(p.x, c.y + (p.y - c.y) * 1.6f), c);
+                    bool inside = body <= 14f;
+                    if (!inside && p.x > c.x && p.x < 60)
+                    {
+                        float half = 14f * (60 - p.x) / (60 - c.x) / 1.6f;
+                        inside = Mathf.Abs(p.y - c.y) <= half;
+                    }
+                    if (inside) t.SetPixel(x, y, Color.white);
+                }
+            t.Apply();
+            return Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), PPU);
+        }
+
+        static Sprite MakeEdge(bool southEast)
+        {
+            // 바닥 마름모(64×32) 위에 높이 side만큼 세운 얇은 담. 피벗은 바닥 마름모의 가운데.
+            int w = 64, top = 32, side = 18, h = top + side;
+            var t = NewTex(w, h);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float fx = x + 0.5f, fy = y + 0.5f;
+                    bool onSide = southEast ? fx >= 32 : fx <= 32;
+                    if (!onSide) continue;
+                    float edgeY = southEast ? (fx - 32f) / 2f : (32f - fx) / 2f;
+                    float up = fy - edgeY;
+                    if (up < 0 || up > side) continue;
+                    float shade = up > side - 3 ? 1f : (southEast ? 0.62f : 0.78f);
+                    t.SetPixel(x, y, new Color(shade, shade, shade, 1));
+                }
+            t.Apply();
+            return Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, (top / 2f) / h), PPU);
+        }
+
+        static Sprite MakeHatch()
+        {
+            int w = 64, h = 32;
+            var t = NewTex(w, h);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float d = DiamondDist(x + 0.5f, y + 0.5f, w, h);
+                    if (d > 1f) continue;
+                    bool stripe = ((x + 2 * y) / 5) % 2 == 0;
+                    float v = stripe ? 1f : 0.82f;
+                    t.SetPixel(x, y, new Color(v, v, v, 1));
+                }
+            t.Apply();
+            return Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), PPU);
         }
     }
 }

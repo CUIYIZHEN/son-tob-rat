@@ -1,56 +1,32 @@
+using System;
+
 namespace SonTob.Core
 {
     /// <summary>
-    /// 모든 난이도 수치. 기획서 v3과 경제 실험실(nail-lab-v4)의 손잡이와 같은 이름을 씁니다.
-    /// 숫자를 바꿀 곳은 여기 한 곳뿐입니다.
+    /// 모든 난이도 수치. 기획서(2장 핵심 규칙, 4장 난이도 설계)와 같은 이름을 씁니다.
+    /// 숫자를 바꿀 곳은 여기 한 곳뿐이고, 근거는 코드가 아니라 기획서에 적습니다.
+    /// 프로토타입은 밤 1번과 낮 1번이며 난이도 선택은 없습니다.
     /// </summary>
     public class GameConfig
     {
-        // 낮
-        public int BaseDisguiseBeats = 30;   // B: 분이 기준 둔갑 박자
-        public int PersonBeatOffset = 2;     // d: 돌쇠 아빠 B-d, 훈장 어른 B+d
-        public int WorkBeatsPerMission = 2;  // w: 임무마다 '하기' 횟수
-        public int SightLength = 3;          // 사람 시선 길이(칸)
-        public int RunSeenSuspicion = 35;    // 뛰다 시선에 걸리면
-        public int RealPersonSuspicion = 40; // 진짜에게 보이면(걸어도)
-        public float WalkHunger = 0.8f;      // 걷기·하기·기다리기 1박자
-        public float RunHunger = 2f;         // 뛰기 1박자
-        public int WashBeats = 2;            // 우물에서 씻기
-
-        // 냄새 고리
-        public int ScentStart = 1;
-        public int ScentPerRunTiles = 6;
-        public int ScentMax = 3;
-
         // 밤
-        public int CatHearing = 2;           // 잠귀 범위(칸)
-        public int ThrowShiftPercent = 0;    // 던짐 비율 조절(%p)
-        public int NailHunger = 50;
-        public int NightHunger = 20;
-        public int NightCalm = 20;           // 밤마다 의심 −20
-        public int CatChaseSpeed = 2;        // 내가 한 번 움직일 때 고양이 칸 수
-        public int TwitchesToWake = 2;
+        public int NightSteps = 24;          // 해가 뜨기 전 걸음
+        public int BonusDivisor = 4;         // 남은 걸음 4당 낮 걸음 +1
+        public int BonusCap = 3;             // 보너스 상한
 
-        // 판 전체
-        public int Days = 3;
-        public float StartHunger = 70f;
-        public float MaxHunger = 100f;
-        public float MaxSuspicion = 100f;
+        // 낮
+        public int DaySteps = 26;            // 시작 남은 걸음 (보너스 전)
+        public int SightLength = 3;          // 사람 · 고양이 · 쥐의 시선(칸)
+        public int RunSeenSuspicion = 30;    // 달리다 눈에 들면
+        public int RealPersonSuspicion = 40; // 진짜 도령에게 들키면(걸어도)
+        public int MaxSuspicion = 100;       // 쥐불놀이
+        public int GaugeCells = 10;          // 게이지는 10칸으로 보여 줌(1칸 = 10)
 
-        public static GameConfig Easy()
+        /// <summary>손톱을 먹은 걸음에 따른 낮 보너스: min(상한, ⌊(밤 걸음 − 먹은 걸음) ÷ 나누는 수⌋).</summary>
+        public int NightBonus(int eatenAtStep)
         {
-            var c = new GameConfig();
-            c.BaseDisguiseBeats = 32; c.CatHearing = 1; c.ThrowShiftPercent = 20;
-            return c;
-        }
-
-        public static GameConfig Normal() { return new GameConfig(); }
-
-        public static GameConfig Hard()
-        {
-            var c = new GameConfig();
-            c.BaseDisguiseBeats = 28; c.CatHearing = 3; c.ThrowShiftPercent = -20;
-            return c;
+            int left = Math.Max(0, NightSteps - eatenAtStep);
+            return Math.Min(BonusCap, left / BonusDivisor);
         }
     }
 }
