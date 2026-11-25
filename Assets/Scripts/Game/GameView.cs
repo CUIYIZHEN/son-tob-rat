@@ -221,6 +221,20 @@ namespace SonTob.Game
             return r;
         }
 
+        /// <summary>그림 파일 스프라이트를 놓습니다. 파일이 없으면 null(부르는 쪽이 도형으로 대신).</summary>
+        SpriteRenderer PutArt(Transform parent, string art, float px, float py, Vector3 pos, Color c, int order, float scale = 1f, bool flip = false)
+        {
+            var sprite = Art.Get(art, px, py);
+            if (sprite == null) return null;
+            var r = Put(parent, sprite, pos, c, order, scale);
+            r.flipX = flip;
+            return r;
+        }
+
+        static bool FacesLeft(Dir d) { return ScreenVector(d).x < 0; }
+
+        static readonly Color NightTint = new Color(0.46f, 0.52f, 0.78f);
+
         static void Clear(Transform t)
         {
             for (int i = t.childCount - 1; i >= 0; i--) Destroy(t.GetChild(i).gameObject);
@@ -248,19 +262,40 @@ namespace SonTob.Game
                     {
                         // 막힌 칸: 길과 다른 무늬의 바닥 + 앞쪽 두 변(남동·남서)에만 낮은 담(기획서 3.3).
                         // 담이 칸 높이를 넘지 않아서 뒤에 선 쥐나 사람이 가려지지 않는다.
-                        Put(staticRoot, Shapes.Hatch, ToWorld(p), night ? NightBlocked : DayBlocked, Order(p, 0));
+                        var tint = night ? NightTint : Color.white;
+                        if (PutArt(staticRoot, "blocked", 0.5f, 0.5f, ToWorld(p), tint, Order(p, 0)) == null)
+                            Put(staticRoot, Shapes.Hatch, ToWorld(p), night ? NightBlocked : DayBlocked, Order(p, 0));
                         if (mark == Village.JarStand) { DrawJarStand(p, night); continue; }
                         var wallCol = night ? NightWall : DayWall;
-                        if (map.TileAt(p + Dir.PlusX.Step()) != Tile.Wall) Put(staticRoot, Shapes.EdgeSE, ToWorld(p), wallCol, Order(p, 5));
-                        if (map.TileAt(p + Dir.PlusY.Step()) != Tile.Wall) Put(staticRoot, Shapes.EdgeSW, ToWorld(p), wallCol, Order(p, 5));
+                        // 담 그림의 피벗은 바닥 마름모 가운데(세로 16 / 50)
+                        if (map.TileAt(p + Dir.PlusX.Step()) != Tile.Wall
+                            && PutArt(staticRoot, "wall_se", 0.5f, 0.32f, ToWorld(p), tint, Order(p, 5)) == null)
+                            Put(staticRoot, Shapes.EdgeSE, ToWorld(p), wallCol, Order(p, 5));
+                        if (map.TileAt(p + Dir.PlusY.Step()) != Tile.Wall
+                            && PutArt(staticRoot, "wall_sw", 0.5f, 0.32f, ToWorld(p), tint, Order(p, 5)) == null)
+                            Put(staticRoot, Shapes.EdgeSW, ToWorld(p), wallCol, Order(p, 5));
                         continue;
                     }
+                    var gtint = night ? NightTint : Color.white;
+                    string groundArt = tile == Tile.DogHole ? "doghole" : ((x * 7 + y * 13) % 2 == 0 ? "ground_a" : "ground_b");
                     var ground = night ? NightGround : DayGround;
                     if (tile == Tile.DogHole) ground = DogHoleCol;
                     if (mark == Village.Well) ground = WellCol;
-                    Put(staticRoot, Shapes.Diamond, ToWorld(p), ground, Order(p, 0));
-                    if (mark == Village.RatHole) Put(staticRoot, Shapes.Circle, ToWorld(p), HoleCol, Order(p, 1), 0.35f);
-                    if (tile == Tile.DogHole) Put(staticRoot, Shapes.Circle, ToWorld(p), new Color(0.1f, 0.08f, 0.06f), Order(p, 1), 0.28f);
+                    if (PutArt(staticRoot, groundArt, 0.5f, 0.5f, ToWorld(p), gtint, Order(p, 0)) == null)
+                        Put(staticRoot, Shapes.Diamond, ToWorld(p), ground, Order(p, 0));
+                    bool art = Art.Get("hole") != null;
+                    if (mark == Village.RatHole)
+                    {
+                        if (!art || PutArt(staticRoot, "hole", 0.5f, 0.5f, ToWorld(p), gtint, Order(p, 1)) == null)
+                            Put(staticRoot, Shapes.Circle, ToWorld(p), HoleCol, Order(p, 1), 0.35f);
+                    }
+                    else if (mark == Village.Well)
+                    {
+                        if (PutArt(staticRoot, "well", 0.5f, 0.1f, ToWorld(p, -0.08f), gtint, Order(p, 6), 0.8f) == null)
+                            Put(staticRoot, Shapes.Circle, ToWorld(p), WellCol, Order(p, 1), 0.5f);
+                    }
+                    else if (tile == Tile.DogHole && Art.Get("doghole") == null)
+                        Put(staticRoot, Shapes.Circle, ToWorld(p), new Color(0.1f, 0.08f, 0.06f), Order(p, 1), 0.28f);
                 }
         }
 
@@ -269,6 +304,11 @@ namespace SonTob.Game
         {
             var col = night ? JarCol * 0.6f + Color.black * 0.4f : JarCol;
             col.a = 1f;
+            if (PutArt(staticRoot, "jars", 0.5f, 0.12f, ToWorld(p, -0.04f), night ? NightTint : Color.white, Order(p, 5), 0.8f) != null)
+            {
+                if (!night) PutArt(staticRoot, "cat", 0.5f, 0.1f, ToWorld(p, 0.24f), Color.white, Order(p, 9), 0.42f);
+                return;
+            }
             Put(staticRoot, Shapes.Circle, ToWorld(p, 0.10f) + new Vector3(-0.16f, 0, 0), col, Order(p, 5), 0.30f);
             Put(staticRoot, Shapes.Circle, ToWorld(p, 0.08f) + new Vector3(0.14f, -0.02f, 0), col, Order(p, 6), 0.34f);
             Put(staticRoot, Shapes.Circle, ToWorld(p, 0.22f), col * 0.9f + Color.white * 0.1f, Order(p, 7), 0.26f);
@@ -338,6 +378,8 @@ namespace SonTob.Game
                 {
                     var c = d.Done[i] ? new Color(0.5f, 0.5f, 0.5f, 0.5f) : LordCol;
                     Put(dynamicRoot, Shapes.Diamond, ToWorld(p), new Color(c.r, c.g, c.b, 0.75f), Order(p, 1), 0.7f);
+                    string[] icons = { "mission_seodang", "mission_jeongja", "mission_jangseung" };
+                    PutArt(dynamicRoot, icons[i], 0.5f, 0.12f, ToWorld(p, -0.02f), d.Done[i] ? new Color(0.6f, 0.6f, 0.6f, 0.65f) : Color.white, Order(p, 8), 0.8f);
                 }
 
             // 시선
@@ -356,22 +398,36 @@ namespace SonTob.Game
                 shadow.transform.rotation = Quaternion.Euler(0, 0, Angle(n.Facing));
                 Color c = n.Spec.IsRealLord ? LordCol * 0.75f + Color.black * 0.25f : new Color(0.45f, 0.42f, 0.40f);
                 c.a = 1f;
-                var body = Put(dynamicRoot, Shapes.Circle, ToWorld(n.Pos, 0.28f), c, Order(n.Pos, 10), 0.42f);
+                var body = PutArt(dynamicRoot, NpcArt(n.Spec.Name), 0.5f, 0.06f, ToWorld(n.Pos, -0.02f), Color.white, Order(n.Pos, 10), 0.62f, FacesLeft(n.Facing));
+                if (body == null) body = Put(dynamicRoot, Shapes.Circle, ToWorld(n.Pos, 0.28f), c, Order(n.Pos, 10), 0.42f);
                 if (n.Spec.IsRealLord)
-                    Put(dynamicRoot, Shapes.Ring, ToWorld(n.Pos, 0.28f), RealSightCol, Order(n.Pos, 11), 0.5f);
+                    Put(dynamicRoot, Shapes.Ring, ToWorld(n.Pos, 0.02f), RealSightCol, Order(n.Pos, 9), 0.62f);
                 var next = n.NextFacing();
                 if (next != n.Facing)
                 {
-                    var arrow = Put(dynamicRoot, Shapes.Arrow, ToWorld(n.Pos, 0.62f) + ScreenVector(next) * 0.25f, new Color(0.15f, 0.12f, 0.1f, 0.85f), Order(n.Pos, 12), 0.45f);
+                    var arrow = Put(dynamicRoot, Shapes.Arrow, ToWorld(n.Pos, 0.78f) + ScreenVector(next) * 0.25f, new Color(0.15f, 0.12f, 0.1f, 0.85f), Order(n.Pos, 12), 0.45f);
                     arrow.transform.rotation = Quaternion.Euler(0, 0, Angle(next));
                 }
                 body.name = n.Name;
             }
 
             // 나(도령으로 둔갑한 쥐)
-            Put(dynamicRoot, Shapes.Circle, ToWorld(d.Player, 0.30f), LordCol, Order(d.Player, 13), 0.46f);
-            Put(dynamicRoot, Shapes.Ring, ToWorld(d.Player, 0.30f), new Color(1f, 0.95f, 0.5f), Order(d.Player, 14), 0.56f);
+            if (PutArt(dynamicRoot, "lord", 0.5f, 0.06f, ToWorld(d.Player, -0.02f), Color.white, Order(d.Player, 13), 0.62f, FacesLeft(ratFacing)) == null)
+                Put(dynamicRoot, Shapes.Circle, ToWorld(d.Player, 0.30f), LordCol, Order(d.Player, 13), 0.46f);
+            Put(dynamicRoot, Shapes.Ring, ToWorld(d.Player, 0.02f), new Color(1f, 0.95f, 0.5f), Order(d.Player, 12), 0.62f);
             camTarget = ToWorld(d.Player);
+        }
+
+        static string NpcArt(string name)
+        {
+            switch (name)
+            {
+                case "우물가 아낙": return "villager_ajumma";
+                case "서당 아이": return "villager_child";
+                case "장꾼": return "villager_peddler";
+                case "농부": return "villager_farmer";
+                default: return "lord";   // 진짜 도령
+            }
         }
 
         void DrawNight(NightPhase n)
@@ -401,7 +457,8 @@ namespace SonTob.Game
             if (!n.Eaten)
             {
                 Put(dynamicRoot, Shapes.Diamond, ToWorld(n.NailTile), new Color(1f, 0.95f, 0.6f, 0.35f), Order(n.NailTile, 2), 0.9f);
-                Put(dynamicRoot, Shapes.Circle, ToWorld(n.NailTile, 0.05f), NailCol, Order(n.NailTile, 4), 0.22f);
+                if (PutArt(dynamicRoot, "nail", 0.5f, 0.5f, ToWorld(n.NailTile, 0.08f), Color.white, Order(n.NailTile, 4), 0.9f) == null)
+                    Put(dynamicRoot, Shapes.Circle, ToWorld(n.NailTile, 0.05f), NailCol, Order(n.NailTile, 4), 0.22f);
                 Put(dynamicRoot, Shapes.Ring, ToWorld(n.NailTile, 0.05f), ActCol, Order(n.NailTile, 4), 0.34f);
             }
 
@@ -410,13 +467,19 @@ namespace SonTob.Game
             // 고양이: 어둠 속에서도 보인다
             var cs = Put(dynamicRoot, Shapes.Droplet, ToWorld(n.Cat), ShadowCol, Order(n.Cat, 9), 0.5f);
             cs.transform.rotation = Quaternion.Euler(0, 0, Angle(n.CatNpc.Facing));
-            Put(dynamicRoot, Shapes.Circle, ToWorld(n.Cat, 0.25f), CatCol, Order(n.Cat, 10), 0.42f);
-            Put(dynamicRoot, Shapes.Circle, ToWorld(n.Cat, 0.42f), CatCol, Order(n.Cat, 11), 0.24f);
+            if (PutArt(dynamicRoot, "cat", 0.5f, 0.06f, ToWorld(n.Cat, -0.02f), Color.white, Order(n.Cat, 10), 0.62f, FacesLeft(n.CatNpc.Facing)) == null)
+            {
+                Put(dynamicRoot, Shapes.Circle, ToWorld(n.Cat, 0.25f), CatCol, Order(n.Cat, 10), 0.42f);
+                Put(dynamicRoot, Shapes.Circle, ToWorld(n.Cat, 0.42f), CatCol, Order(n.Cat, 11), 0.24f);
+            }
 
             // 쥐(웅크린 모습은 새벽에)
             bool curled = mode == Mode.Dawn;
-            Put(dynamicRoot, Shapes.Circle, ToWorld(n.Player, curled ? 0.12f : 0.15f), new Color(0.62f, 0.60f, 0.58f), Order(n.Player, 13), curled ? 0.34f : 0.30f);
-            if (!curled)
+            string ratArt = curled ? "rat_curled" : "rat";
+            bool ratDrawn = PutArt(dynamicRoot, ratArt, 0.5f, 0.08f, ToWorld(n.Player, -0.02f), Color.white, Order(n.Player, 13), curled ? 0.6f : 0.55f, FacesLeft(ratFacing)) != null;
+            if (!ratDrawn)
+                Put(dynamicRoot, Shapes.Circle, ToWorld(n.Player, curled ? 0.12f : 0.15f), new Color(0.62f, 0.60f, 0.58f), Order(n.Player, 13), curled ? 0.34f : 0.30f);
+            if (!curled && !ratDrawn)
             {
                 var look = Put(dynamicRoot, Shapes.Chevron, ToWorld(n.Player, 0.15f) + ScreenVector(ratFacing).normalized * 0.2f, new Color(0.95f, 0.92f, 0.85f, 0.9f), Order(n.Player, 14), 0.4f);
                 look.transform.rotation = Quaternion.Euler(0, 0, Angle(ratFacing));
@@ -730,11 +793,16 @@ namespace SonTob.Game
             Rct(new Rect(0, 0, W, H), new Color(1f, 0.90f, 0.62f, Mathf.Lerp(0f, 0.85f, t)));   // 어둠이 걷힌다
             // 웅크린 쥐
             float cx = W / 2, cy = H * 0.52f;
-            var grey = new Color(0.62f, 0.60f, 0.58f);
-            Disc(cx, cy, 46, 38, grey);
-            Disc(cx - 30, cy - 30, 14, 14, grey * 0.9f);
-            Disc(cx - 6, cy - 36, 12, 12, grey * 0.9f);
-            Bar(cx + 48, cy + 18, 54, 5, -25f, new Color(0.8f, 0.6f, 0.6f));    // 꼬리
+            var curledTex = Art.Tex("rat_curled");
+            if (curledTex != null) GUI.DrawTexture(new Rect(cx - 96, cy - 72, 192, 144), curledTex, ScaleMode.ScaleToFit);
+            else
+            {
+                var grey = new Color(0.62f, 0.60f, 0.58f);
+                Disc(cx, cy, 46, 38, grey);
+                Disc(cx - 30, cy - 30, 14, 14, grey * 0.9f);
+                Disc(cx - 6, cy - 36, 12, 12, grey * 0.9f);
+                Bar(cx + 48, cy + 18, 54, 5, -25f, new Color(0.8f, 0.6f, 0.6f));    // 꼬리
+            }
             if (t > 0.25f)
             {
                 var old = sBig.normal.textColor;
@@ -750,7 +818,10 @@ namespace SonTob.Game
 
         void DrawCutscene(float W, float H)
         {
-            if (cutIndex == 0) DrawCutLord(W, H); else DrawCutVow(W, H);
+            var cutTex = Art.Tex(cutIndex == 0 ? "cut1" : "cut2");
+            if (cutTex != null) GUI.DrawTexture(new Rect(0, 0, W, H), cutTex, ScaleMode.ScaleAndCrop);
+            else if (cutIndex == 0) DrawCutLord(W, H);
+            else DrawCutVow(W, H);
 
             // 자막 한 줄
             Rct(new Rect(0, H * 0.84f, W, H * 0.16f), new Color(0, 0, 0, 0.62f));

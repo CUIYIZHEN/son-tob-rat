@@ -7,7 +7,7 @@
 
 ## 구현 환경
 - Unity 6, 버전은 ProjectSettings/ProjectVersion.txt 기준
-- 미술 파일 없이 코드로 도형을 그림 (Assets/Scripts/Game), 화면 글자는 OnGUI + Resources/Fonts/HUD.ttf
+- 그림은 tools/make_art.py(Pillow)가 그려 Assets/Resources/Art에 PNG로 둔다. 파일이 없으면 코드 도형(Assets/Scripts/Game/Shapes.cs)으로 대신한다. 화면 글자는 OnGUI + Resources/Fonts/HUD.ttf
 - 규칙은 Unity 없는 순수 C# (Assets/Scripts/Core)
 - 배포: main에 올리면 GitHub Actions(.github/workflows/build.yml)가 테스트 → WebGL 빌드 → GitHub Pages
 
