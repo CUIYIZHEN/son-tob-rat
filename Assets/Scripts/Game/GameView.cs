@@ -11,7 +11,7 @@ namespace SonTob.Game
     /// </summary>
     public class GameView : MonoBehaviour
     {
-        enum Mode { Title, Cutscene, Playing, Dawn, End }
+        enum Mode { Title, Cutscene, Tutorial, Playing, Dawn, End }
 
         // 색 (낮 / 밤)
         static readonly Color DayGround = new Color(0.86f, 0.80f, 0.66f);
@@ -54,6 +54,7 @@ namespace SonTob.Game
         readonly List<string> toasts = new List<string>();
         float toastUntil;
         bool catHintShown;
+        bool tutorialShown;   // 조작 설명 팝업은 앱을 켠 뒤 처음 시작할 때 한 번
         float dayHintUntil;   // 낮이 시작된 뒤 규칙 안내를 보여 주는 시간
 
         // 처음에는 규칙을 짧게: 밤 규칙은 시작 화면에, 낮 규칙은 새벽에 보여 준다.
@@ -141,6 +142,18 @@ namespace SonTob.Game
         }
 
         void EndCutscene()
+        {
+            if (!tutorialShown)
+            {
+                tutorialShown = true;
+                catHintShown = true;   // 팝업이 고양이 눈과 조작을 함께 알려 준다
+                mode = Mode.Tutorial;
+                return;
+            }
+            BeginPlaying();
+        }
+
+        void BeginPlaying()
         {
             mode = Mode.Playing;
             fadeStart = Time.time; fadeCol = new Color(0.02f, 0.03f, 0.07f);
@@ -569,6 +582,11 @@ namespace SonTob.Game
                 if (Time.time - dawnStart >= DawnSeconds) FinishDawn();
                 return;
             }
+            if (mode == Mode.Tutorial)
+            {
+                if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return)) BeginPlaying();
+                return;
+            }
             if (run == null || !Controls) return;
 
             // 한 번 누른 뒤 0.3초가 지나도록 두 번째가 없으면 1칸 걷기
@@ -699,7 +717,7 @@ namespace SonTob.Game
         void FitCamera()
         {
             float aspect = Mathf.Max(0.3f, cam.aspect);
-            bool close = mode == Mode.Playing || mode == Mode.Dawn;
+            bool close = mode == Mode.Playing || mode == Mode.Dawn || mode == Mode.Tutorial;
             // 가까이: 마름모 7칸쯤이 가로에 들어오게. 지도 보기: 마을 전체.
             float near = Mathf.Max(2.4f, 3.6f / aspect);
             float far = Mathf.Max(3.6f, 6.6f / aspect);
@@ -798,6 +816,8 @@ namespace SonTob.Game
 
             DrawFade(W, H);
 
+            if (mode == Mode.Tutorial) { DrawTutorial(W, H, paper); return; }
+
             if (mode == Mode.Title)
             {
                 var r = Panel(new Rect(16, H * 0.16f, W - 32, 380), paper);
@@ -875,6 +895,27 @@ namespace SonTob.Game
             fadeStart = Time.time; fadeCol = new Color(0.02f, 0.03f, 0.07f);
             BuildStatic();
             Refresh();
+        }
+
+        // ───────────────────────── 조작 설명 팝업 (인트로 컷 다음, 튜토리얼처럼)
+
+        void DrawTutorial(float W, float H, Color paper)
+        {
+            Rct(new Rect(0, 0, W, H), new Color(0.02f, 0.03f, 0.07f, 0.72f));   // 뒤의 밤 지도를 어둡게
+            var r = Panel(new Rect(16, H * 0.10f, W - 32, 440), paper);
+            GUILayout.BeginArea(new Rect(r.x + 18, r.y + 14, r.width - 36, r.height - 28));
+            GUILayout.Label("조작 방법", sTitle);
+            GUILayout.Space(8);
+            GUILayout.Label("<b>① 빈 곳을 누르기</b>", sBig);
+            GUILayout.Label("내 위치를 기준으로 화면이 네 구역으로 나뉘어요. 누른 구역 쪽으로 한 칸 걸어요. 빠르게 두 번 누르면 두 칸 달려요.", sBody);
+            GUILayout.Space(8);
+            GUILayout.Label("<b>② 길 위에 뜬 칸을 누르기</b>", sBig);
+            GUILayout.Label("<b>하얀 테두리</b> 칸은 한 칸 걷기, <b>파란 테두리</b> 칸은 두 칸 달리기예요. 내가 선 칸을 누르면 기다려요.", sBody);
+            GUILayout.Space(8);
+            GUILayout.Label("<b>붉은 칸</b>은 고양이 눈이에요. 눈에 든 채로 있으면 잡혀요. 걷기 · 달리기 · 기다리기는 모두 1걸음이에요.", sBody);
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("알겠어요, 시작", sButton, GUILayout.Height(48))) BeginPlaying();
+            GUILayout.EndArea();
         }
 
         /// <summary>해가 뜨거나 질 때 화면 덮개가 서서히 걷힙니다.</summary>
