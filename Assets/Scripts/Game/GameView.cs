@@ -437,7 +437,7 @@ namespace SonTob.Game
                 var next = n.NextFacing();
                 if (next != n.Facing)
                 {
-                    var arrow = Put(dynamicRoot, Shapes.Arrow, ToWorld(n.Pos, 0.78f) + ScreenVector(next) * 0.25f, new Color(0.15f, 0.12f, 0.1f, 0.85f), Order(n.Pos, 12), 0.45f);
+                    var arrow = Put(dynamicRoot, Shapes.Arrow, ToWorld(n.Pos, 0.86f) + ScreenVector(next) * 0.28f, new Color(1f, 0.86f, 0.22f, 1f), Order(n.Pos, 12), 0.62f);
                     arrow.transform.rotation = Quaternion.Euler(0, 0, Angle(next));
                     AddGlide(arrow, gd);
                 }
