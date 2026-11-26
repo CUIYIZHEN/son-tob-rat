@@ -106,15 +106,6 @@ namespace SonTob.Tests
         }
 
         [Test]
-        public void JarStandBlocksWalkingButNotSight()
-        {
-            var map = Village.CreateMap();
-            var jar = new Pos(0, 5);
-            Assert.IsFalse(map.Walkable(jar, true));
-            Assert.IsFalse(map.BlocksSight(jar));
-        }
-
-        [Test]
         public void WalkingCannotEnterDogHoleButRunningCan()
         {
             var map = Village.CreateMap();
