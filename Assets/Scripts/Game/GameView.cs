@@ -68,6 +68,8 @@ namespace SonTob.Game
         int cutIndex;
         float cutStart;
         float dawnStart;
+        float endStart;
+        const float EndImageSeconds = 2.5f;   // 끝 그림만 보여 주는 시간(누르면 바로 넘어감)
 
         // 해 뜨는 바뀜(화면 덮개가 서서히 걷힘)
         float fadeStart = -10f;
@@ -167,7 +169,7 @@ namespace SonTob.Game
             ranLast = m.Kind == MoveKind.Run;
             run.Apply(m);
             Toast(run.LastEvents);
-            if (run.Phase == Phase.Over) { mode = Mode.End; Refresh(); return; }
+            if (run.Phase == Phase.Over) { mode = Mode.End; endStart = Time.time; Refresh(); return; }
             if (before == Phase.Night && run.Phase == Phase.Day)
             {
                 // 먹었다: 쥐가 웅크리고 닭이 울며 어둠이 걷힌다. 2초 뒤 아침.
@@ -813,7 +815,23 @@ namespace SonTob.Game
 
             if (mode == Mode.End)
             {
-                var r = Panel(new Rect(16, H * 0.25f, W - 32, 290), paper);
+                // 성공 · 의심 100 실패에는 끝 그림이 있다(없으면 예전처럼 글 상자만). 그림을 먼저 보여 주고 글 상자는 뒤에.
+                string endName = run.Ended == EndReason.Win ? "end_success" : run.Ended == EndReason.Suspicion ? "end_fail" : null;
+                var endTex = endName != null ? Art.Tex(endName) : null;
+                float endAge = Time.time - endStart;
+                if (endTex != null)
+                {
+                    var oldC = GUI.color;
+                    GUI.color = new Color(1, 1, 1, Mathf.Clamp01(endAge / 0.6f));
+                    GUI.DrawTexture(new Rect(0, 0, W, H), endTex, ScaleMode.ScaleAndCrop);
+                    GUI.color = oldC;
+                    if (endAge < EndImageSeconds)
+                    {
+                        if (Event.current.type == EventType.MouseDown && endAge > 0.6f) endStart = Time.time - EndImageSeconds;
+                        return;
+                    }
+                }
+                var r = endTex != null ? Panel(new Rect(16, H - 246, W - 32, 230), paper) : Panel(new Rect(16, H * 0.25f, W - 32, 290), paper);
                 GUILayout.BeginArea(new Rect(r.x + 16, r.y + 14, r.width - 32, r.height - 28));
                 GUILayout.Label(run.Ended == EndReason.Win ? "임무 완료" : "실패", sTitle);
                 GUILayout.Space(6);
@@ -872,6 +890,17 @@ namespace SonTob.Game
         void DrawDawn(float W, float H)
         {
             float t = Mathf.Clamp01((Time.time - dawnStart) / DawnSeconds);
+            var dawnTex = Art.Tex("dawn");
+            if (dawnTex != null)
+            {
+                // 새벽 그림: 닭이 우는 지붕, 떠오르는 해, 도령 그림자와 웅크린 쥐
+                var oldC = GUI.color;
+                GUI.color = new Color(1, 1, 1, Mathf.Clamp01(t / 0.25f));
+                GUI.DrawTexture(new Rect(0, 0, W, H), dawnTex, ScaleMode.ScaleAndCrop);
+                GUI.color = oldC;
+                if (t > 0.45f) DrawDayRule(W, H * 0.70f, true);
+                return;
+            }
             Rct(new Rect(0, 0, W, H), new Color(1f, 0.90f, 0.62f, Mathf.Lerp(0f, 0.85f, t)));   // 어둠이 걷힌다
             // 웅크린 쥐
             float cx = W / 2, cy = H * 0.52f;

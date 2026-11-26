@@ -468,5 +468,6 @@ if __name__ == '__main__':
     rat('rat.png'); rat_curled('rat_curled.png'); lord('lord.png'); lord_run('lord_run.png'); cat('cat.png')
     for k, n in [('ajumma', 'villager_ajumma.png'), ('child', 'villager_child.png'), ('peddler', 'villager_peddler.png'), ('farmer', 'villager_farmer.png')]:
         villager(n, k)
-    cut1('cut1.png'); cut2('cut2.png')
+    # cut1 · cut2 · dawn · end_success · end_fail 은 jin이 만든 일러스트(540 × 960)라서 여기서 다시 그리지 않는다.
+    # (예전 도형 그림이 필요하면 cut1('cut1.png'); cut2('cut2.png')를 직접 부른다)
     print('done', sorted(os.listdir(OUT)))
