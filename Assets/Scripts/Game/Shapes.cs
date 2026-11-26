@@ -107,20 +107,28 @@ namespace SonTob.Game
             return Sprite.Create(t, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), PPU);
         }
 
+        static bool InArrow(float fx, float fy, float m)
+        {
+            // 줄기(막대) + 머리(삼각형). 오른쪽을 가리킨다. m은 안쪽으로 줄이는 폭.
+            bool shaft = fx >= 3 + m && fx <= 40 - m && Mathf.Abs(fy - 16f) <= 5.5f - m;
+            bool head = fx >= 34 + m && Mathf.Abs(fy - 16f) <= (62f - fx) * (15f / 28f) - m * 1.3f;
+            return shaft || head;
+        }
+
         static Sprite MakeArrow()
         {
-            // 오른쪽을 가리키는 삼각형
-            int s = 32;
-            var t = NewTex(s, s);
-            for (int y = 0; y < s; y++)
-                for (int x = 0; x < s; x++)
+            // 방향 화살표: 줄기가 있는 큰 화살표. 검은 테두리 + 흰 속(색을 입혀 씀)이라 어느 바닥에서도 잘 보인다.
+            int w = 64, h = 32;
+            var t = NewTex(w, h);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
                 {
                     float fx = x + 0.5f, fy = y + 0.5f;
-                    float half = (s - fx) / 2f;
-                    if (Mathf.Abs(fy - s / 2f) <= half && fx > 4) t.SetPixel(x, y, Color.white);
+                    if (!InArrow(fx, fy, 0f)) continue;
+                    t.SetPixel(x, y, InArrow(fx, fy, 2.2f) ? Color.white : new Color(0.08f, 0.06f, 0.05f, 1f));
                 }
             t.Apply();
-            return Sprite.Create(t, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), PPU);
+            return Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), PPU);
         }
 
         static Sprite MakeDashed()
