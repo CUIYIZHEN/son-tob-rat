@@ -23,7 +23,8 @@
 | 경로 | 내용 |
 |---|---|
 | `Assets/Scripts/Core` | 규칙만 담은 순수 C# (Unity 없이도 돌아감). 수치는 `GameConfig.cs` 한 곳 |
-| `Assets/Scripts/Game` | 화면과 입력. 미술 파일 없이 도형을 코드로 그림 |
+| `Assets/Scripts/Game` | 화면과 입력. 그림은 `Assets/Resources/Art`의 PNG를 쓰고, 없으면 도형을 코드로 그림 |
+| `tools/make_art.py` | 그림(캐릭터 · 칸 · 물건 · 컷 2장)을 그리는 스크립트. `python3 tools/make_art.py`로 다시 그림 |
 | `Assets/Editor` | WebGL 빌드 메뉴, 걸음 길 L 재기 메뉴 |
 | `Assets/Tests/EditMode` | 규칙 테스트 (지도 L=30, 시선, 고양이 길, 밤 보너스, 의심 등) |
 | `.github/workflows/build.yml` | 테스트 → WebGL 빌드 → GitHub Pages 배포 |
