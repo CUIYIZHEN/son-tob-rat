@@ -124,7 +124,7 @@ namespace SonTob.Tests
             Assert.AreEqual(52, new Npc(Village.CatSpec(), map).LoopLength);
             var lengths = new Dictionary<string, int>
             {
-                { "우물가 아낙", 1 }, { "서당 아이", 8 }, { "장꾼", 8 }, { "농부", 12 }, { "진짜 도령", 4 },
+                { "우물가 아낙", 4 }, { "서당 아이", 8 }, { "장꾼", 8 }, { "농부", 12 }, { "진짜 도령", 4 },
             };
             foreach (var spec in Village.DayNpcs())
                 Assert.AreEqual(lengths[spec.Name], new Npc(spec, map).LoopLength, spec.Name);
@@ -144,13 +144,13 @@ namespace SonTob.Tests
         }
 
         [Test]
-        public void WellWomanTurnsEveryTwoSteps()
+        public void WellWomanWalksBackAndForthNearTheWell()
         {
             var map = Village.CreateMap();
             var woman = new Npc(Village.DayNpcs()[0], map);
-            var seen = new List<Dir>();
-            for (int i = 0; i < 9; i++) { seen.Add(woman.Facing); woman.Step(); }
-            CollectionAssert.AreEqual(new[] { Dir.MinusX, Dir.MinusX, Dir.PlusY, Dir.PlusY, Dir.PlusX, Dir.PlusX, Dir.MinusY, Dir.MinusY, Dir.MinusX }, seen);
+            var seen = new List<Pos>();
+            for (int i = 0; i < 5; i++) { seen.Add(woman.Pos); woman.Step(); }
+            CollectionAssert.AreEqual(new[] { new Pos(4, 3), new Pos(5, 3), new Pos(6, 3), new Pos(5, 3), new Pos(4, 3) }, seen);
         }
 
         [Test]

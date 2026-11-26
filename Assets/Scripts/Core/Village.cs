@@ -80,8 +80,7 @@ namespace SonTob.Core
         {
             return new List<NpcSpec>
             {
-                new NpcSpec { Name = "우물가 아낙", Waypoints = new[] { new Pos(5, 3) },
-                    LookCycle = new[] { Dir.MinusX, Dir.PlusY, Dir.PlusX, Dir.MinusY }, TurnEvery = 2 },
+                new NpcSpec { Name = "우물가 아낙", Waypoints = new[] { new Pos(4, 3), new Pos(6, 3) } },
                 new NpcSpec { Name = "서당 아이", Waypoints = new[] { new Pos(3, 0), new Pos(6, 0), new Pos(6, 1), new Pos(4, 1) } },
                 new NpcSpec { Name = "장꾼", Waypoints = new[] { new Pos(7, 3), new Pos(8, 0) } },
                 new NpcSpec { Name = "농부", Waypoints = new[] { new Pos(4, 9), new Pos(8, 11) } },
