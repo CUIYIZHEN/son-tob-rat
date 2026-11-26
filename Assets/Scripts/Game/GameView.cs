@@ -23,7 +23,6 @@ namespace SonTob.Game
         static readonly Color DogHoleCol = new Color(0.35f, 0.30f, 0.25f);
         static readonly Color WellCol = new Color(0.45f, 0.65f, 0.85f);
         static readonly Color HoleCol = new Color(0.08f, 0.06f, 0.05f);
-        static readonly Color JarCol = new Color(0.42f, 0.26f, 0.18f);
         static readonly Color SightCol = new Color(1f, 0.70f, 0.15f);
         static readonly Color RealSightCol = new Color(0.92f, 0.18f, 0.18f);
         static readonly Color CatSightCol = new Color(0.95f, 0.15f, 0.15f);
@@ -69,6 +68,16 @@ namespace SonTob.Game
         Color fadeCol;
         const float FadeSeconds = 1.4f;
 
+        // 두 칸 달린 직후에는 네 발로 뛰는 모습(다음 한 칸 걷기 · 기다리기에 사람 모습으로 돌아옴)
+        bool ranLast;
+
+        // 한 걸음 사이 미끄러지듯 옮겨 가는 그림(걸음마다 다시 그리므로 이전 칸을 기억해 둔다)
+        const float GlideSeconds = 0.22f;
+        readonly Dictionary<string, Pos> prevPos = new Dictionary<string, Pos>();
+        readonly List<Glide> glides = new List<Glide>();
+        float glideStart = -10f;
+        struct Glide { public Transform T; public Vector3 Home, Delta; }
+
         // 두 번 누르기 판정을 기다리는 터치
         Dir? pendingDir;
         float pendingTime;
@@ -107,6 +116,7 @@ namespace SonTob.Game
             run = new GameRun(config);
             ratFacing = Dir.PlusX;
             pendingDir = null;
+            ranLast = false;
             zoomOut = false;
             BuildStatic();
             Refresh();
@@ -139,6 +149,7 @@ namespace SonTob.Game
             run.RetryNight();
             ratFacing = Dir.PlusX;
             pendingDir = null;
+            ranLast = false;
             BuildStatic();
             Refresh();
         }
@@ -147,6 +158,7 @@ namespace SonTob.Game
         {
             var before = run.Phase;
             if (m.Kind == MoveKind.Walk || m.Kind == MoveKind.Run) ratFacing = m.Dir;
+            ranLast = m.Kind == MoveKind.Run;
             run.Apply(m);
             Toast(run.LastEvents);
             if (run.Phase == Phase.Over) { mode = Mode.End; Refresh(); return; }
@@ -165,6 +177,7 @@ namespace SonTob.Game
         void FinishDawn()
         {
             mode = Mode.Playing;
+            ranLast = false;
             fadeStart = Time.time; fadeCol = new Color(1f, 0.93f, 0.75f);
             BuildStatic();
             Refresh();
@@ -233,6 +246,38 @@ namespace SonTob.Game
 
         static bool FacesLeft(Dir d) { return ScreenVector(d).x < 0; }
 
+        /// <summary>key 인물이 직전 그리기에서 있던 칸과 지금 칸의 화면 차이. 처음이면 0.</summary>
+        Vector3 Track(string key, Pos cur)
+        {
+            Pos prev;
+            var delta = Vector3.zero;
+            if (prevPos.TryGetValue(key, out prev) && !prev.Equals(cur) && Mathf.Abs(prev.X - cur.X) + Mathf.Abs(prev.Y - cur.Y) <= 2)
+                delta = ToWorld(prev) - ToWorld(cur);
+            prevPos[key] = cur;
+            return delta;
+        }
+
+        void AddGlide(Component c, Vector3 delta)
+        {
+            if (c == null || delta == Vector3.zero) return;
+            var t = c.transform;
+            t.localPosition += delta;
+            glides.Add(new Glide { T = t, Home = t.localPosition - delta, Delta = delta });
+        }
+
+        void UpdateGlides()
+        {
+            if (glides.Count == 0) return;
+            float k = Mathf.Clamp01((Time.time - glideStart) / GlideSeconds);
+            k = 1f - (1f - k) * (1f - k);
+            for (int i = 0; i < glides.Count; i++)
+            {
+                var g = glides[i];
+                if (g.T != null) g.T.localPosition = g.Home + g.Delta * (1f - k);
+            }
+            if (k >= 1f) glides.Clear();
+        }
+
         static readonly Color NightTint = new Color(0.46f, 0.52f, 0.78f);
 
         static void Clear(Transform t)
@@ -249,6 +294,7 @@ namespace SonTob.Game
         void BuildStatic()
         {
             Clear(staticRoot);
+            prevPos.Clear();
             var map = run.Map;
             bool night = run.Phase == Phase.Night;
             cam.backgroundColor = night ? new Color(0.04f, 0.05f, 0.09f) : new Color(0.93f, 0.91f, 0.84f);
@@ -260,24 +306,21 @@ namespace SonTob.Game
                     char mark = map.MarkAt(p);
                     if (tile == Tile.Wall)
                     {
-                        // 막힌 칸: 길과 다른 무늬의 바닥 + 앞쪽 두 변(남동·남서)에만 낮은 담(기획서 3.3).
-                        // 담이 칸 높이를 넘지 않아서 뒤에 선 쥐나 사람이 가려지지 않는다.
+                        // 막힌 칸: 길과 다른 무늬의 바닥 위에 칸을 꽉 채우는 낮은 돌 블록(기획서 3.3).
+                        // 블록 높이가 칸 높이 안이라 뒤에 선 쥐나 사람이 가려지지 않고, 옆으로 비집고 갈 틈처럼 보이지 않는다.
                         var tint = night ? NightTint : Color.white;
                         if (PutArt(staticRoot, "blocked", 0.5f, 0.5f, ToWorld(p), tint, Order(p, 0)) == null)
                             Put(staticRoot, Shapes.Hatch, ToWorld(p), night ? NightBlocked : DayBlocked, Order(p, 0));
-                        if (mark == Village.JarStand) { DrawJarStand(p, night); continue; }
-                        var wallCol = night ? NightWall : DayWall;
-                        // 담 그림의 피벗은 바닥 마름모 가운데(세로 16 / 50)
-                        if (map.TileAt(p + Dir.PlusX.Step()) != Tile.Wall
-                            && PutArt(staticRoot, "wall_se", 0.5f, 0.32f, ToWorld(p), tint, Order(p, 5)) == null)
+                        if (PutArt(staticRoot, "wall_block", 0.5f, 0.333f, ToWorld(p), tint, Order(p, 5)) == null)
+                        {
+                            var wallCol = night ? NightWall : DayWall;
                             Put(staticRoot, Shapes.EdgeSE, ToWorld(p), wallCol, Order(p, 5));
-                        if (map.TileAt(p + Dir.PlusY.Step()) != Tile.Wall
-                            && PutArt(staticRoot, "wall_sw", 0.5f, 0.32f, ToWorld(p), tint, Order(p, 5)) == null)
                             Put(staticRoot, Shapes.EdgeSW, ToWorld(p), wallCol, Order(p, 5));
+                        }
                         continue;
                     }
                     var gtint = night ? NightTint : Color.white;
-                    string groundArt = tile == Tile.DogHole ? "doghole" : ((x * 7 + y * 13) % 2 == 0 ? "ground_a" : "ground_b");
+                    string groundArt = (x * 7 + y * 13) % 2 == 0 ? "ground_a" : "ground_b";
                     var ground = night ? NightGround : DayGround;
                     if (tile == Tile.DogHole) ground = DogHoleCol;
                     if (mark == Village.Well) ground = WellCol;
@@ -294,34 +337,20 @@ namespace SonTob.Game
                         if (PutArt(staticRoot, "well", 0.5f, 0.1f, ToWorld(p, -0.08f), gtint, Order(p, 6), 0.8f) == null)
                             Put(staticRoot, Shapes.Circle, ToWorld(p), WellCol, Order(p, 1), 0.5f);
                     }
-                    else if (tile == Tile.DogHole && Art.Get("doghole") == null)
-                        Put(staticRoot, Shapes.Circle, ToWorld(p), new Color(0.1f, 0.08f, 0.06f), Order(p, 1), 0.28f);
+                    if (tile == Tile.DogHole)
+                    {
+                        // 개구멍: 담 아래에 반원 구멍이 뚫린 블록
+                        if (PutArt(staticRoot, "doghole", 0.5f, 0.333f, ToWorld(p), gtint, Order(p, 5)) == null)
+                            Put(staticRoot, Shapes.Circle, ToWorld(p), new Color(0.1f, 0.08f, 0.06f), Order(p, 1), 0.28f);
+                    }
                 }
-        }
-
-        /// <summary>장독대: 막힌 칸. 낮에는 고양이가 그 위에서 잡니다. 밤에는 고양이 길이 이 칸을 지납니다.</summary>
-        void DrawJarStand(Pos p, bool night)
-        {
-            var col = night ? JarCol * 0.6f + Color.black * 0.4f : JarCol;
-            col.a = 1f;
-            if (PutArt(staticRoot, "jars", 0.5f, 0.12f, ToWorld(p, -0.04f), night ? NightTint : Color.white, Order(p, 5), 0.8f) != null)
-            {
-                if (!night) PutArt(staticRoot, "cat", 0.5f, 0.1f, ToWorld(p, 0.24f), Color.white, Order(p, 9), 0.42f);
-                return;
-            }
-            Put(staticRoot, Shapes.Circle, ToWorld(p, 0.10f) + new Vector3(-0.16f, 0, 0), col, Order(p, 5), 0.30f);
-            Put(staticRoot, Shapes.Circle, ToWorld(p, 0.08f) + new Vector3(0.14f, -0.02f, 0), col, Order(p, 6), 0.34f);
-            Put(staticRoot, Shapes.Circle, ToWorld(p, 0.22f), col * 0.9f + Color.white * 0.1f, Order(p, 7), 0.26f);
-            if (!night)
-            {
-                Put(staticRoot, Shapes.Circle, ToWorld(p, 0.40f), CatCol, Order(p, 8), 0.24f);
-                Put(staticRoot, Shapes.Circle, ToWorld(p, 0.47f) + new Vector3(0.09f, 0, 0), CatCol, Order(p, 9), 0.14f);
-            }
         }
 
         void Refresh()
         {
             Clear(dynamicRoot);
+            glides.Clear();
+            glideStart = Time.time;
             if (run == null) return;
             if (NightShown) DrawNight(run.Night);
             else DrawDay(run.DayState);
@@ -394,27 +423,35 @@ namespace SonTob.Game
             // 사람들: 물방울 그림자(뾰족한 쪽 = 보는 쪽) + 몸 + 머리 위 다음 방향 화살표
             foreach (var n in d.Npcs)
             {
+                var gd = Track(n.Name, n.Pos);
                 var shadow = Put(dynamicRoot, Shapes.Droplet, ToWorld(n.Pos), ShadowCol, Order(n.Pos, 9), 0.55f);
+                AddGlide(shadow, gd);
                 shadow.transform.rotation = Quaternion.Euler(0, 0, Angle(n.Facing));
                 Color c = n.Spec.IsRealLord ? LordCol * 0.75f + Color.black * 0.25f : new Color(0.45f, 0.42f, 0.40f);
                 c.a = 1f;
                 var body = PutArt(dynamicRoot, NpcArt(n.Spec.Name), 0.5f, 0.06f, ToWorld(n.Pos, -0.02f), Color.white, Order(n.Pos, 10), 0.62f, FacesLeft(n.Facing));
                 if (body == null) body = Put(dynamicRoot, Shapes.Circle, ToWorld(n.Pos, 0.28f), c, Order(n.Pos, 10), 0.42f);
+                AddGlide(body, gd);
                 if (n.Spec.IsRealLord)
-                    Put(dynamicRoot, Shapes.Ring, ToWorld(n.Pos, 0.02f), RealSightCol, Order(n.Pos, 9), 0.62f);
+                    AddGlide(Put(dynamicRoot, Shapes.Ring, ToWorld(n.Pos, 0.02f), RealSightCol, Order(n.Pos, 9), 0.62f), gd);
                 var next = n.NextFacing();
                 if (next != n.Facing)
                 {
                     var arrow = Put(dynamicRoot, Shapes.Arrow, ToWorld(n.Pos, 0.78f) + ScreenVector(next) * 0.25f, new Color(0.15f, 0.12f, 0.1f, 0.85f), Order(n.Pos, 12), 0.45f);
                     arrow.transform.rotation = Quaternion.Euler(0, 0, Angle(next));
+                    AddGlide(arrow, gd);
                 }
                 body.name = n.Name;
             }
 
             // 나(도령으로 둔갑한 쥐)
-            if (PutArt(dynamicRoot, "lord", 0.5f, 0.06f, ToWorld(d.Player, -0.02f), Color.white, Order(d.Player, 13), 0.62f, FacesLeft(ratFacing)) == null)
-                Put(dynamicRoot, Shapes.Circle, ToWorld(d.Player, 0.30f), LordCol, Order(d.Player, 13), 0.46f);
-            Put(dynamicRoot, Shapes.Ring, ToWorld(d.Player, 0.02f), new Color(1f, 0.95f, 0.5f), Order(d.Player, 12), 0.62f);
+            // 두 칸을 달린 직후에는 사람 모습 그대로 네 발로 뛰는 그림
+            var pd = Track("나", d.Player);
+            var me = PutArt(dynamicRoot, ranLast ? "lord_run" : "lord", 0.5f, 0.06f, ToWorld(d.Player, -0.02f), Color.white, Order(d.Player, 13), 0.62f, FacesLeft(ratFacing));
+            if (me == null)
+                me = Put(dynamicRoot, Shapes.Circle, ToWorld(d.Player, ranLast ? 0.18f : 0.30f), LordCol, Order(d.Player, 13), ranLast ? 0.60f : 0.46f);
+            AddGlide(me, pd);
+            AddGlide(Put(dynamicRoot, Shapes.Ring, ToWorld(d.Player, 0.02f), new Color(1f, 0.95f, 0.5f), Order(d.Player, 12), 0.62f), pd);
             camTarget = ToWorld(d.Player);
         }
 
@@ -465,20 +502,27 @@ namespace SonTob.Game
             DrawCandidates(n.Candidates(), n.ActHere(), n.Player);
 
             // 고양이: 어둠 속에서도 보인다
+            var cg = Track("고양이", n.Cat);
             var cs = Put(dynamicRoot, Shapes.Droplet, ToWorld(n.Cat), ShadowCol, Order(n.Cat, 9), 0.5f);
             cs.transform.rotation = Quaternion.Euler(0, 0, Angle(n.CatNpc.Facing));
-            if (PutArt(dynamicRoot, "cat", 0.5f, 0.06f, ToWorld(n.Cat, -0.02f), Color.white, Order(n.Cat, 10), 0.62f, FacesLeft(n.CatNpc.Facing)) == null)
+            AddGlide(cs, cg);
+            var catBody = PutArt(dynamicRoot, "cat", 0.5f, 0.06f, ToWorld(n.Cat, -0.02f), Color.white, Order(n.Cat, 10), 0.62f, FacesLeft(n.CatNpc.Facing));
+            if (catBody == null)
             {
-                Put(dynamicRoot, Shapes.Circle, ToWorld(n.Cat, 0.25f), CatCol, Order(n.Cat, 10), 0.42f);
-                Put(dynamicRoot, Shapes.Circle, ToWorld(n.Cat, 0.42f), CatCol, Order(n.Cat, 11), 0.24f);
+                catBody = Put(dynamicRoot, Shapes.Circle, ToWorld(n.Cat, 0.25f), CatCol, Order(n.Cat, 10), 0.42f);
+                AddGlide(Put(dynamicRoot, Shapes.Circle, ToWorld(n.Cat, 0.42f), CatCol, Order(n.Cat, 11), 0.24f), cg);
             }
+            AddGlide(catBody, cg);
 
             // 쥐(웅크린 모습은 새벽에)
             bool curled = mode == Mode.Dawn;
             string ratArt = curled ? "rat_curled" : "rat";
-            bool ratDrawn = PutArt(dynamicRoot, ratArt, 0.5f, 0.08f, ToWorld(n.Player, -0.02f), Color.white, Order(n.Player, 13), curled ? 0.6f : 0.55f, FacesLeft(ratFacing)) != null;
+            var rg = Track("나", n.Player);
+            var ratSr = PutArt(dynamicRoot, ratArt, 0.5f, 0.08f, ToWorld(n.Player, -0.02f), Color.white, Order(n.Player, 13), curled ? 0.6f : 0.55f, FacesLeft(ratFacing));
+            bool ratDrawn = ratSr != null;
             if (!ratDrawn)
-                Put(dynamicRoot, Shapes.Circle, ToWorld(n.Player, curled ? 0.12f : 0.15f), new Color(0.62f, 0.60f, 0.58f), Order(n.Player, 13), curled ? 0.34f : 0.30f);
+                ratSr = Put(dynamicRoot, Shapes.Circle, ToWorld(n.Player, curled ? 0.12f : 0.15f), new Color(0.62f, 0.60f, 0.58f), Order(n.Player, 13), curled ? 0.34f : 0.30f);
+            AddGlide(ratSr, rg);
             if (!curled && !ratDrawn)
             {
                 var look = Put(dynamicRoot, Shapes.Chevron, ToWorld(n.Player, 0.15f) + ScreenVector(ratFacing).normalized * 0.2f, new Color(0.95f, 0.92f, 0.85f, 0.9f), Order(n.Player, 14), 0.4f);
@@ -503,6 +547,7 @@ namespace SonTob.Game
         void Update()
         {
             FitCamera();
+            UpdateGlides();
 
             if (mode == Mode.Cutscene)
             {
@@ -529,10 +574,43 @@ namespace SonTob.Game
 
             if (Input.GetMouseButtonDown(0) && !PointerOverHud(Input.mousePosition))
             {
+                Move tapped;
+                if (TileTapAt(Input.mousePosition, out tapped))
+                {
+                    pendingDir = null;
+                    Play(tapped);
+                    return;
+                }
                 Dir dir;
                 if (QuadrantAt(Input.mousePosition, out dir)) Tap(dir);
             }
             HandleKeys();
+        }
+
+        /// <summary>
+        /// 칸을 직접 누르는 입력. 길 위 후보 칸(첫째 칸 = 걷기, 둘째 칸 = 달리기)과 내 칸(= 기다리기).
+        /// 후보 칸이 아닌 곳은 false를 돌려주어 구역 누르기(한 번 = 걷기, 두 번 = 달리기)로 넘어간다.
+        /// </summary>
+        bool TileTapAt(Vector3 mouse, out Move move)
+        {
+            move = default(Move);
+            var w = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, -cam.transform.position.z));
+            var moves = run.Phase == Phase.Night ? run.Night.Candidates() : run.DayState.Candidates();
+            foreach (var m in moves)
+                if (InTile(w, m.Target)) { move = m; return true; }
+            var here = PlayerPos();
+            if (InTile(w, here))
+            {
+                move = new Move { Kind = MoveKind.Wait, Target = here, Middle = here };
+                return true;
+            }
+            return false;
+        }
+
+        static bool InTile(Vector3 w, Pos p)
+        {
+            var c = ToWorld(p);
+            return Mathf.Abs(w.x - c.x) / 0.5f + Mathf.Abs(w.y - c.y) / 0.25f <= 1f;
         }
 
         /// <summary>나를 중심으로 가로선·세로선을 그어 화면을 네 구역으로 나눕니다(기획서 1장).</summary>
@@ -713,7 +791,7 @@ namespace SonTob.Game
 
             if (mode == Mode.Title)
             {
-                var r = Panel(new Rect(16, H * 0.10f, W - 32, 440), paper);
+                var r = Panel(new Rect(16, H * 0.08f, W - 32, 480), paper);
                 GUILayout.BeginArea(new Rect(r.x + 16, r.y + 14, r.width - 32, r.height - 28));
                 GUILayout.Label("손톱 먹은 쥐", sTitle);
                 GUILayout.Space(8);
@@ -721,7 +799,7 @@ namespace SonTob.Game
                     "1. 밤에는 쥐가 되어 어둠 속에서 고양이 눈(붉은 칸)을 피해 도령의 손톱을 먹는다. 쥐는 바라보는 방향 앞 3칸만 보인다.\n" +
                     "2. 손톱을 먹으면 도령으로 둔갑한 아침이 된다. 먹은 걸음이 빠를수록 낮 걸음이 최대 3 늘어난다.\n" +
                     "3. 낮에는 남은 걸음 안에 임무 3개(서당 · 정자 · 장승)를 끝낸다. 임무 칸에 서서 「임무하기」를 누른다.\n" +
-                    "4. 가고 싶은 쪽을 한 번 누르면 한 칸 걷고, 빠르게 두 번 누르면 두 칸 달린다. 걷기 · 달리기 · 기다리기 · 먹기 · 임무하기 모두 1걸음이다.\n" +
+                    "4. 길 위에 뜬 첫째 칸을 누르면 한 칸 걷고, 둘째 칸을 누르면 두 칸 달린다. 가고 싶은 쪽 화면을 빠르게 두 번 눌러도 달린다. 내 칸을 누르면 기다린다. 모두 1걸음이다.\n" +
                     "5. 눈에 든 칸을 달리면 의심 +30, 진짜 도령과 마주치면 걸어도 +40. 의심이 100이 되면 쥐불놀이로 끝난다.", sBody);
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("시작", sButton, GUILayout.Height(48))) StartRun();
@@ -770,6 +848,7 @@ namespace SonTob.Game
             run.Restart();
             ratFacing = Dir.PlusX;
             pendingDir = null;
+            ranLast = false;
             zoomOut = false;
             mode = Mode.Playing;
             fadeStart = Time.time; fadeCol = new Color(0.02f, 0.03f, 0.07f);

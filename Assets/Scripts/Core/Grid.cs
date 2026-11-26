@@ -60,7 +60,7 @@ namespace SonTob.Core
 
     /// <summary>
     /// 마을 지도. 문자 격자에서 읽습니다(기획서 7장, village-map-v1.txt).
-    /// # 담장·집, . 길, d 개구멍(네 발로만), K 장독대(고양이 잠자리, 막힘), 그 밖의 글자는 길 위의 표식.
+    /// # 담장·집, . 길, d 개구멍(네 발로만), 그 밖의 글자는 길 위의 표식.
     /// </summary>
     public class MapData
     {
@@ -84,7 +84,7 @@ namespace SonTob.Core
                     else if (c == 'd') tiles[x, y] = Tile.DogHole;
                     else
                     {
-                        tiles[x, y] = c == 'K' ? Tile.Wall : Tile.Road;
+                        tiles[x, y] = Tile.Road;
                         if (c != '.')
                         {
                             List<Pos> list;
@@ -106,13 +106,8 @@ namespace SonTob.Core
             return t == Tile.Road || (t == Tile.DogHole && dogHoleOk);
         }
 
-        /// <summary>시선을 막는 칸. 담장과 개구멍은 막고, 장독대(낮은 항아리)는 시선이 넘어갑니다.</summary>
-        public bool BlocksSight(Pos p)
-        {
-            var t = TileAt(p);
-            if (t == Tile.Road) return false;
-            return !(InBounds(p) && MarkAt(p) == 'K');
-        }
+        /// <summary>시선을 막는 칸. 담장과 개구멍은 막습니다.</summary>
+        public bool BlocksSight(Pos p) { return TileAt(p) != Tile.Road; }
 
         public bool HasMark(char c) { return marks.ContainsKey(c); }
         public Pos Mark(char c) { return marks[c][0]; }

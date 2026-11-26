@@ -27,7 +27,7 @@ namespace SonTob.Core
     public static class Village
     {
         /// <summary>
-        /// 마을 지도 12칸 × 12줄(기획서 3.3). # 담장·집, . 길, d 개구멍, K 장독대(쥐는 못 가고 시선은 넘어감),
+        /// 마을 지도 12칸 × 12줄(기획서 3.3). # 담장·집, . 길, d 개구멍(담 아래 반원, 달릴 때만 지남),
         /// R 쥐구멍, N 손톱, W 우물, h i j 임무 칸(서당 · 정자 · 장승).
         /// 쥐구멍에서 세 임무 칸을 도는 가장 짧은 걸음 길 L = 30.
         /// </summary>
@@ -38,7 +38,7 @@ namespace SonTob.Core
             "...#.###.#..",
             ".#.#..W..d..",
             "..d..##.##..",
-            "K##..##..#..",
+            "###..##..#..",
             "...#.R..##..",
             "..##.##.#...",
             "...d.##.#.##",
@@ -50,7 +50,6 @@ namespace SonTob.Core
         public const char RatHole = 'R';
         public const char NailMark = 'N';
         public const char Well = 'W';
-        public const char JarStand = 'K';   // 장독대: 쥐는 못 가고 시선은 넘어간다. 고양이 길이 지난다
 
         public static MapData CreateMap() { return new MapData(MapRows); }
 

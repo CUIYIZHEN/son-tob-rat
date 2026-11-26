@@ -96,44 +96,53 @@ def blocked(name, seed):
     d.line(sc(DIAMOND + [DIAMOND[0]]), fill=shade(base, 0.7), width=int(1.1 * S), joint='curve')
     save(im, name, 64, 32)
 
-def doghole(name):
-    base = (200, 182, 146, 255)
-    im, d = canvas(64, 32)
-    d.polygon(sc(DIAMOND), fill=base)
-    # 담 밑에 뚫린 구멍: 아치 모양
-    ell(d, (20, 7, 44, 27), (92, 74, 58, 255), INK, 1.4)
-    ell(d, (24, 10, 40, 24), (26, 18, 16, 255), None)
-    for (x, y) in [(18, 14), (46, 16), (22, 26), (42, 6)]:
-        ell(d, (x - 3, y - 1.6, x + 3, y + 1.6), (170, 158, 132, 255), INK, 0.8)
-    im = clip_diamond(im)
-    d = ImageDraw.Draw(im)
-    d.line(sc(DIAMOND + [DIAMOND[0]]), fill=shade(base, 0.7), width=int(1.1 * S), joint='curve')
-    save(im, name, 64, 32)
-
-# ───────────── 낮은 담 (64 × 50). 칸의 앞쪽 두 변에만 붙는다
-
-def wall(name, southeast):
-    im, d = canvas(64, 50)
-    if southeast:
-        quad = [(32, 50), (64, 34), (64, 16), (32, 32)]
-        body = (176, 146, 118, 255)
-        cap = [(32, 32), (64, 16), (64, 12), (32, 28)]
-    else:
-        quad = [(0, 34), (32, 50), (32, 32), (0, 16)]
-        body = (198, 168, 138, 255)
-        cap = [(0, 16), (32, 32), (32, 28), (0, 12)]
-    poly(d, quad, body, INK, 1.1)
-    # 흙담의 돌 무늬
-    rnd = random.Random(4 if southeast else 5)
-    for _ in range(9):
-        if southeast:
-            x = rnd.uniform(35, 61); ytop = 32 - (x - 32) / 2; ybot = 50 - (x - 32) / 2
-        else:
-            x = rnd.uniform(3, 29); ytop = 16 + x / 2; ybot = 34 + x / 2
-        y = rnd.uniform(ytop + 4, ybot - 4)
-        ell(d, (x - 2.2, y - 1.4, x + 2.2, y + 1.4), shade(body, rnd.uniform(0.85, 1.1)), shade(body, 0.7), 0.5)
-    poly(d, cap, (92, 92, 104, 255), INK, 1.0)   # 기와 얹은 담 위
-    save(im, name, 64, 50)
+def wall_block(name, arch=False):
+    """막힌 칸: 칸을 꽉 채우는 낮은 돌 블록(높이 16, 칸 높이 32를 넘지 않음). arch면 담 아래 반원 구멍(개구멍)."""
+    im, d = canvas(64, 48)
+    roof = (104, 106, 120, 255)
+    se_col = (168, 138, 112, 255)
+    sw_col = (194, 164, 134, 255)
+    top = [(32, 0), (64, 16), (32, 32), (0, 16)]
+    se = [(32, 32), (64, 16), (64, 32), (32, 48)]
+    sw = [(0, 16), (32, 32), (32, 48), (0, 32)]
+    poly(d, se, se_col, INK, 1.2)
+    poly(d, sw, sw_col, INK, 1.2)
+    poly(d, top, roof, INK, 1.3)
+    # 기와 무늬(위)
+    for k in range(1, 5):
+        t = k / 5.0
+        line(d, [(32 - 32 * t, 16 * t), (64 - 32 * t, 16 + 16 * t - 16)], shade(roof, 0.78), 0.8)
+    for k in range(1, 5):
+        t = k / 5.0
+        line(d, [(32 + 32 * t, 16 * t), (0 + 32 * t, 16 + 16 * t)], shade(roof, 0.88), 0.7)
+    # 흙담 돌 무늬(옆)
+    rnd = random.Random(11)
+    for _ in range(7):
+        x = rnd.uniform(36, 61); ytop = 32 - (x - 32) / 2
+        y = rnd.uniform(ytop + 3, ytop + 13)
+        ell(d, (x - 2.2, y - 1.4, x + 2.2, y + 1.4), shade(se_col, rnd.uniform(0.85, 1.1)), shade(se_col, 0.7), 0.5)
+    for _ in range(7):
+        x = rnd.uniform(3, 28); ytop = 16 + x / 2
+        y = rnd.uniform(ytop + 3, ytop + 13)
+        ell(d, (x - 2.2, y - 1.4, x + 2.2, y + 1.4), shade(sw_col, rnd.uniform(0.85, 1.1)), shade(sw_col, 0.7), 0.5)
+    if arch:
+        r = 9.0
+        for face in ('se', 'sw'):
+            pts_out, pts_in = [], []
+            for i in range(0, 21):
+                t = -r + (2 * r) * i / 20.0
+                v = math.sqrt(max(0.0, r * r - t * t)) * 0.95
+                if face == 'se':
+                    bx, by = 48 + t, 40 - t / 2.0
+                else:
+                    bx, by = 16 + t, 40 + t / 2.0
+                pts_out.append((bx, by - v))
+                pts_in.append((bx, by - v * 0.78))
+            base = pts_out[0], pts_out[-1]
+            poly(d, [base[0]] + pts_out[1:-1] + [base[1]], (28, 20, 16, 255), INK, 1.3)
+            ins = [(x, y + (0 if i in (0, 20) else 0)) for i, (x, y) in enumerate(pts_in)]
+            d.polygon(sc([pts_in[0]] + pts_in[1:-1] + [pts_in[-1]]), fill=(12, 8, 6, 255))
+    save(im, name, 64, 48)
 
 # ───────────── 물건
 
@@ -170,18 +179,6 @@ def well(name):
     for x in (10, 20, 30, 38):
         line(d, [(x, 48), (x - 1, 54)], (120, 118, 112, 255), 0.8)
     save(im, name, 48, 60)
-
-def jars(name):
-    im, d = canvas(64, 48)
-    def jar(cx, cy, w, h, col):
-        ell(d, (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2), col, INK, 1.2)
-        rect(d, (cx - w * 0.28, cy - h / 2 - 3, cx + w * 0.28, cy - h / 2 + 2), shade(col, 0.9), INK, 1.0)
-        ell(d, (cx - w * 0.34, cy - h / 2 - 5, cx + w * 0.34, cy - h / 2 - 1), shade(col, 0.7), INK, 1.0)
-        line(d, [(cx - w * 0.3, cy), (cx + w * 0.3, cy)], shade(col, 0.8), 0.8)
-    jar(18, 36, 22, 24, (160, 98, 62, 255))
-    jar(44, 38, 24, 26, (140, 84, 54, 255))
-    jar(32, 24, 20, 22, (176, 112, 70, 255))
-    save(im, name, 64, 48)
 
 def seodang(name):
     im, d = canvas(48, 60)
@@ -263,6 +260,28 @@ def lord(name):
     ell(d, (17, 21, 20, 24), INK, None); ell(d, (24, 21, 27, 24), INK, None)
     line(d, [(16, 19), (20, 20)], INK, 0.8); line(d, [(28, 19), (24, 20)], INK, 0.8)
     line(d, [(19, 27), (25, 27)], (150, 70, 70, 255), 0.8)
+    save(im, name, w, h)
+
+def lord_run(name):
+    """사람 모습 그대로 쥐처럼 네 발로 달리는 도령."""
+    w, h = 64, 44
+    im, d = canvas(w, h)
+    blue = (74, 112, 200, 255)
+    line(d, [(10, 24), (4, 22), (1, 14)], (214, 160, 160, 255), 2.0)             # 옷 밑으로 삐져나온 쥐 꼬리
+    for (x0, y0, x1, y1) in [(10, 30, 5, 41), (22, 32, 20, 41)]:                  # 뒷다리(바지와 신)
+        line(d, [(x0, y0), (x1, y1)], shade(blue, 0.8), 4.0)
+        ell(d, (x1 - 4, y1 - 1.5, x1 + 3, y1 + 2.5), (30, 28, 34, 255), INK, 0.8)
+    poly(d, [(8, 16), (38, 14), (42, 28), (40, 36), (10, 36)], blue, INK, 1.4)    # 엎드린 도포
+    line(d, [(14, 30), (36, 29)], (200, 50, 50, 255), 1.8)                        # 띠
+    for (x0, y0, x1, y1) in [(36, 26, 44, 40), (44, 24, 54, 40)]:                 # 앞다리(소매와 손)
+        line(d, [(x0, y0), (x1, y1)], shade(blue, 0.92), 4.0)
+        ell(d, (x1 - 2.5, y1 - 2, x1 + 3.5, y1 + 2.5), SKIN, INK, 0.8)
+    ell(d, (42, 8, 60, 27), SKIN, INK, 1.3)                                       # 얼굴
+    ell(d, (38, 6, 62, 14), (30, 28, 34, 255), INK, 1.3)                          # 갓 챙
+    ell(d, (44, -1, 58, 9), (40, 36, 44, 255), INK, 1.3)                          # 갓 윗부분
+    ell(d, (53, 16, 56, 19.5), INK, None)
+    line(d, [(51, 14), (56, 15.5)], INK, 0.8)                                     # 굳은 눈썹
+    line(d, [(54, 23), (58, 22.5)], (150, 70, 70, 255), 0.7)
     save(im, name, w, h)
 
 def cat(name):
@@ -442,12 +461,11 @@ if __name__ == '__main__':
     ground('ground_a.png', 1)
     ground('ground_b.png', 2, (216, 198, 158, 255))
     blocked('blocked.png', 3)
-    doghole('doghole.png')
-    wall('wall_se.png', True)
-    wall('wall_sw.png', False)
-    hole('hole.png'); nail('nail.png'); well('well.png'); jars('jars.png')
+    wall_block('wall_block.png')
+    wall_block('doghole.png', True)
+    hole('hole.png'); nail('nail.png'); well('well.png')
     seodang('mission_seodang.png'); jeongja('mission_jeongja.png'); jangseung('mission_jangseung.png')
-    rat('rat.png'); rat_curled('rat_curled.png'); lord('lord.png'); cat('cat.png')
+    rat('rat.png'); rat_curled('rat_curled.png'); lord('lord.png'); lord_run('lord_run.png'); cat('cat.png')
     for k, n in [('ajumma', 'villager_ajumma.png'), ('child', 'villager_child.png'), ('peddler', 'villager_peddler.png'), ('farmer', 'villager_farmer.png')]:
         villager(n, k)
     cut1('cut1.png'); cut2('cut2.png')
