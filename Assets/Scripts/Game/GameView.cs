@@ -455,13 +455,11 @@ namespace SonTob.Game
                 AddGlide(body, gd);
                 if (n.Spec.IsRealLord)
                     AddGlide(Put(dynamicRoot, Shapes.Ring, ToWorld(n.Pos, 0.02f), RealSightCol, Order(n.Pos, 9), 0.62f), gd);
+                // 다음 걸음에 볼 방향. 같은 방향을 이어 보더라도 늘 그린다(없어졌다 나타나 보이지 않게).
                 var next = n.NextFacing();
-                if (next != n.Facing)
-                {
-                    var arrow = Put(dynamicRoot, Shapes.Arrow, ToWorld(n.Pos, 0.86f) + ScreenVector(next) * 0.28f, new Color(1f, 0.86f, 0.22f, 1f), Order(n.Pos, 12), 0.8f);
-                    arrow.transform.rotation = Quaternion.Euler(0, 0, Angle(next));
-                    AddGlide(arrow, gd);
-                }
+                var arrow = Put(dynamicRoot, Shapes.Arrow, ToWorld(n.Pos, 0.86f) + ScreenVector(next) * 0.24f, new Color(1f, 0.86f, 0.22f, 1f), Order(n.Pos, 12), 0.6f);
+                arrow.transform.rotation = Quaternion.Euler(0, 0, Angle(next));
+                AddGlide(arrow, gd);
                 body.name = n.Name;
             }
 
